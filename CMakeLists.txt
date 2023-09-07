@@ -98,8 +98,15 @@ else()
 	set(CLIENT_LIBS_ABSTRACT_NAME curl)
 endif()
 
+# GCC coroutine flags
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcoroutines")
+    #-ftree-slp-vectorize with coroutine cause link error. disable it util gcc fix.
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-tree-slp-vectorize")
+endif()
+
 #Compiler flags
-list(APPEND SDK_COMPILER_FLAGS "-std=c++11")
+list(APPEND SDK_COMPILER_FLAGS "-std=c++20")
 if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 	list(APPEND SDK_COMPILER_FLAGS "/MP")
 	if (NOT ENABLE_RTTI)
@@ -113,7 +120,7 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	
 	list(APPEND SDK_COMPILER_FLAGS "-Wall" "-Werror" "-pedantic" "-Wextra")
 else()
-	list(APPEND SDK_COMPILER_FLAGS "-fno-exceptions" "-fPIC")
+	list(APPEND SDK_COMPILER_FLAGS "-fPIC")
 	if (NOT ENABLE_RTTI)
 	list(APPEND SDK_COMPILER_FLAGS "-fno-rtti")
 	endif()
