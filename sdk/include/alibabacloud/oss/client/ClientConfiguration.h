@@ -22,7 +22,6 @@
 #include <string>
 #include <ylt/coro_http/coro_http_client.hpp>
 
-
 namespace AlibabaCloud {
 namespace OSS {
 class RetryStrategy;
@@ -101,6 +100,8 @@ public:
    * enable or disable auto correct http request date.
    */
   bool enableDateSkewAdjustment;
+
+  bool useCoro;
   /**
    * Rate limit data upload speed.
    */
