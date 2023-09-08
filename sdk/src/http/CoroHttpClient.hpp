@@ -6,7 +6,6 @@
 #include <cstddef>
 #include <fstream>
 #include <ios>
-#include <ylt/coro_http/coro_http_client.hpp>
 
 namespace AlibabaCloud::OSS {
 class CoroHttpClient : public HttpClient {

@@ -16,7 +16,9 @@
 
 #include "Client.h"
 #include "../auth/Signer.h"
+#ifdef USE_CPP20
 #include "../http/CoroHttpClient.hpp"
+#endif
 #include "../http/CurlHttpClient.h"
 #include "../utils/Utils.h"
 #include <alibabacloud/oss/client/RetryStrategy.h>
@@ -33,7 +35,11 @@ Client::Client(const std::string &servicename,
     : requestDateOffset_(0), serviceName_(servicename),
       configuration_(configuration) {
   configuration.useCoro
+#ifdef USE_CPP20
       ? httpClient_ = std::make_shared<CoroHttpClient>(configuration)
+#else
+      ? httpClient_ = configuration_.httpClient
+#endif
       : httpClient_ = std::make_shared<CurlHttpClient>(configuration);
 }
 

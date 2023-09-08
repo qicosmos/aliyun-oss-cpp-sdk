@@ -18,12 +18,14 @@
 
 #include <alibabacloud/oss/http/HttpRequest.h>
 #include <alibabacloud/oss/http/HttpResponse.h>
-#include <async_simple/coro/Lazy.h>
 #include <atomic>
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#ifdef USE_CPP20
+#include <async_simple/coro/Lazy.h>
 #include <ylt/coro_http/coro_http_client.hpp>
+#endif
 
 namespace AlibabaCloud {
 namespace OSS {
@@ -36,10 +38,12 @@ public:
   virtual std::shared_ptr<HttpResponse>
   makeRequest(const std::shared_ptr<HttpRequest> &request) = 0;
 
+#ifdef USE_CPP20
   virtual async_simple::coro::Lazy<std::shared_ptr<HttpResponse>>
   makeRequestAsync(const std::shared_ptr<HttpRequest> &) {
     co_return nullptr;
   }
+#endif
 
   bool isEnable();
   void disable();

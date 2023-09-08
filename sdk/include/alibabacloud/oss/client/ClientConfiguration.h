@@ -20,7 +20,6 @@
 #include <alibabacloud/oss/utils/Executor.h>
 #include <memory>
 #include <string>
-#include <ylt/coro_http/coro_http_client.hpp>
 
 namespace AlibabaCloud {
 namespace OSS {
@@ -101,7 +100,10 @@ public:
    */
   bool enableDateSkewAdjustment;
 
+#ifdef USE_CPP20
   bool useCoro;
+#endif
+
   /**
    * Rate limit data upload speed.
    */

@@ -32,7 +32,7 @@ option(BUILD_SAMPLE "Build sample" ON)
 option(BUILD_TESTS "Build unit and perfermence tests" OFF)
 option(ENABLE_COVERAGE "Flag to enable/disable building code with -fprofile-arcs and -ftest-coverage. Gcc only" OFF)
 option(ENABLE_RTTI "Flag to enable/disable building code with RTTI information" ON)
-
+option(USE_CPP20 "Use C++ 20 coroutine" OFF)
 
 #Platform
 if (CMAKE_CROSSCOMPILING)
@@ -98,15 +98,8 @@ else()
 	set(CLIENT_LIBS_ABSTRACT_NAME curl)
 endif()
 
-# GCC coroutine flags
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcoroutines")
-    #-ftree-slp-vectorize with coroutine cause link error. disable it util gcc fix.
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-tree-slp-vectorize")
-endif()
-
 #Compiler flags
-list(APPEND SDK_COMPILER_FLAGS "-std=c++20")
+list(APPEND SDK_COMPILER_FLAGS "-std=c++11")
 if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 	list(APPEND SDK_COMPILER_FLAGS "/MP")
 	if (NOT ENABLE_RTTI)
@@ -120,7 +113,7 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	
 	list(APPEND SDK_COMPILER_FLAGS "-Wall" "-Werror" "-pedantic" "-Wextra")
 else()
-	list(APPEND SDK_COMPILER_FLAGS "-fPIC")
+	list(APPEND SDK_COMPILER_FLAGS "-fno-exceptions" "-fPIC")
 	if (NOT ENABLE_RTTI)
 	list(APPEND SDK_COMPILER_FLAGS "-fno-rtti")
 	endif()
@@ -134,6 +127,18 @@ else()
 	endif()
 endif()
 
+if (USE_CPP20)
+	message("Use C++20 coroutine")
+    # GCC coroutine flags
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcoroutines")
+        #-ftree-slp-vectorize with coroutine cause link error. disable it util gcc fix.
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-tree-slp-vectorize")
+    endif()
+    #Compiler flags
+    list(APPEND SDK_COMPILER_FLAGS "-std=c++20")
+	add_compile_definitions(USE_CPP20)
+endif()
 
 if (BUILD_SHARED_LIBS)
 	set(STATIC_LIB_SUFFIX "-static")
