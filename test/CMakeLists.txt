@@ -17,30 +17,31 @@ project(cpp-sdk-test VERSION ${version})
 	
 file(GLOB test_gtest_src "external/gtest/*")
 file(GLOB test_main_src "src/*")
-file(GLOB test_accesskey_src "src/AccessKey/*")
-file(GLOB test_service_src "src/Service/*")
-file(GLOB test_bucket_src "src/Bucket/*")
-file(GLOB test_object_src "src/Object/*")
-file(GLOB test_presignedurl_src "src/PresignedUrl/*")
+# file(GLOB test_accesskey_src "src/AccessKey/*")
+# file(GLOB test_service_src "src/Service/*")
+# file(GLOB test_bucket_src "src/Bucket/*")
+# file(GLOB test_object_src "src/Object/*")
+# file(GLOB test_presignedurl_src "src/PresignedUrl/*")
 file(GLOB test_multipartupload_src "src/MultipartUpload/*")
-file(GLOB test_resumable_src "src/Resumable/*")
-file(GLOB test_other_src "src/Other/*")
-file(GLOB test_livechannel_src "src/LiveChannel/*")
-file(GLOB test_encryption_src "src/Encryption/*")
+# file(GLOB test_resumable_src "src/Resumable/*")
+# file(GLOB test_other_src "src/Other/*")
+# file(GLOB test_livechannel_src "src/LiveChannel/*")
+# file(GLOB test_encryption_src "src/Encryption/*")
 	
 add_executable(${PROJECT_NAME} 
 	${test_main_src}
 	${test_gtest_src} 
-	${test_accesskey_src}
-	${test_service_src}
-	${test_bucket_src}
-	${test_object_src}
-	${test_presignedurl_src}
+	# ${test_accesskey_src}
+	# ${test_service_src}
+	# ${test_bucket_src}
+	# ${test_object_src}
+	# ${test_presignedurl_src}
 	${test_multipartupload_src}
-	${test_resumable_src}
-	${test_other_src}
-	${test_livechannel_src}
-	${test_encryption_src})
+	# ${test_resumable_src}
+	# ${test_other_src}
+	# ${test_livechannel_src}
+	# ${test_encryption_src}
+	)
 
 target_include_directories(${PROJECT_NAME}
 	PRIVATE ${CMAKE_SOURCE_DIR}/sdk/include

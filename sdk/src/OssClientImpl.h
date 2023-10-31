@@ -130,6 +130,10 @@ namespace OSS
         /*MultipartUpload*/
         InitiateMultipartUploadOutcome InitiateMultipartUpload(const InitiateMultipartUploadRequest &request) const;
         PutObjectOutcome UploadPart(const UploadPartRequest& request) const;
+        #ifdef USE_CORO
+          async_simple::coro::Lazy<PutObjectOutcome>
+          UploadPartImpl(const UploadPartRequest &request) const;
+        #endif
         UploadPartCopyOutcome UploadPartCopy(const UploadPartCopyRequest &request) const;
         CompleteMultipartUploadOutcome CompleteMultipartUpload(const CompleteMultipartUploadRequest &request) const;
         VoidOutcome AbortMultipartUpload(const AbortMultipartUploadRequest &request) const;
@@ -173,6 +177,10 @@ namespace OSS
         virtual std::shared_ptr<HttpRequest> buildHttpRequest(const std::string & endpoint, const ServiceRequest &msg, Http::Method method) const;
         virtual bool hasResponseError(const std::shared_ptr<HttpResponse>&response)  const;
         OssOutcome MakeRequest(const OssRequest &request, Http::Method method) const;
+        #ifdef USE_CORO
+          async_simple::coro::Lazy<OssOutcome>
+          MakeRequestImpl(const OssRequest &request, Http::Method method) const;
+        #endif
 
     private:
         void addHeaders(const std::shared_ptr<HttpRequest> &httpRequest, const HeaderCollection &headers) const;
