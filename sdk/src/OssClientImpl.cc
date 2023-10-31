@@ -315,22 +315,35 @@ ServiceResult OssClientImpl::buildResult(const OssRequest &request, const std::s
 
 OssOutcome OssClientImpl::MakeRequest(const OssRequest &request, Http::Method method) const
 {
-    int ret = request.validate();
-    if (ret != 0) {
-        return OssOutcome(OssError("ValidateError", request.validateMessage(ret)));
-    }
-
-    if (!isValidEndpoint_) {
-        return OssOutcome(OssError("ValidateError", "The endpoint is invalid."));
-    }
-
-    auto outcome = BASE::AttemptRequest(endpoint_, request, method);
-    if (outcome.isSuccess()) {
-        return OssOutcome(buildResult(request, outcome.result()));
-    } else {
-        return OssOutcome(buildError(outcome.error()));
-    }
+#ifdef USE_CORO
+  return async_simple::coro::syncAwait(MakeRequestImpl(request, method));
+#else
+  return MakeRequestImpl(request, method);
+#endif
 }
+
+#ifdef USE_CORO
+async_simple::coro::Lazy<OssOutcome>
+OssClientImpl::MakeRequestImpl(const OssRequest &request,
+                               Http::Method method) const {
+  int ret = request.validate();
+  if (ret != 0) {
+    OSS_RETURN OssOutcome(OssError("ValidateError", request.validateMessage(ret)));
+  }
+
+  if (!isValidEndpoint_) {
+    OSS_RETURN OssOutcome(OssError("ValidateError", "The endpoint is invalid."));
+  }
+
+  auto outcome = OSS_AWAIT BASE::AttemptRequestImpl(endpoint_, request, method);
+
+  if (outcome.isSuccess()) {
+    OSS_RETURN OssOutcome(buildResult(request, outcome.result()));
+  } else {
+    OSS_RETURN OssOutcome(buildError(outcome.error()));
+  }
+}
+#endif
 
 #if !defined(OSS_DISABLE_BUCKET)
 
@@ -1372,14 +1385,25 @@ InitiateMultipartUploadOutcome OssClientImpl::InitiateMultipartUpload(const Init
 
 PutObjectOutcome OssClientImpl::UploadPart(const UploadPartRequest &request)const
 {
-    auto outcome = MakeRequest(request, Http::Put);
-    if(outcome.isSuccess()){
-        const HeaderCollection& header = outcome.result().headerCollection();
-        return PutObjectOutcome(PutObjectResult(header));
-    }else{
-        return PutObjectOutcome(outcome.error());
-    }
+#ifdef USE_CORO
+  return async_simple::coro::syncAwait(UploadPartImpl(request));
+#else
+  return UploadPartImpl(request);
+#endif
 }
+
+#ifdef USE_CORO
+async_simple::coro::Lazy<PutObjectOutcome>
+OssClientImpl::UploadPartImpl(const UploadPartRequest &request) const {
+  auto outcome = OSS_AWAIT MakeRequestImpl(request, Http::Put);
+  if (outcome.isSuccess()) {
+    const HeaderCollection &header = outcome.result().headerCollection();
+    OSS_RETURN PutObjectOutcome(PutObjectResult(header));
+  } else {
+    OSS_RETURN PutObjectOutcome(outcome.error());
+  }
+}
+#endif
 
 UploadPartCopyOutcome OssClientImpl::UploadPartCopy(const UploadPartCopyRequest &request) const
 {

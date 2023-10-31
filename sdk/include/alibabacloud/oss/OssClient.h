@@ -214,6 +214,10 @@ namespace OSS
         /*MultipartUpload*/
         InitiateMultipartUploadOutcome InitiateMultipartUpload(const InitiateMultipartUploadRequest& request) const;
         PutObjectOutcome UploadPart(const UploadPartRequest& request) const;
+        #ifdef USE_CORO
+        async_simple::coro::Lazy<PutObjectOutcome>
+        UploadPartAsync(const UploadPartRequest &request) const;
+        #endif
         UploadPartCopyOutcome UploadPartCopy(const UploadPartCopyRequest& request) const;
         CompleteMultipartUploadOutcome CompleteMultipartUpload(const CompleteMultipartUploadRequest& request) const;
         VoidOutcome AbortMultipartUpload(const AbortMultipartUploadRequest& request) const;
@@ -268,7 +272,12 @@ namespace OSS
         ListObjectOutcomeCallable ListObjectsCallable(const ListObjectsRequest& request) const;
         GetObjectOutcomeCallable GetObjectCallable(const GetObjectRequest& request) const;
         PutObjectOutcomeCallable PutObjectCallable(const PutObjectRequest& request) const;
-        PutObjectOutcomeCallable UploadPartCallable(const UploadPartRequest& request) const;
+        #ifdef USE_CORO
+        async_simple::coro::Lazy<PutObjectOutcome>
+        #else
+        PutObjectOutcomeCallable
+        #endif 
+        UploadPartCallable(const UploadPartRequest& request) const;
         UploadPartCopyOutcomeCallable UploadPartCopyCallable(const UploadPartCopyRequest& request) const;
 
         /*Extended APIs*/

@@ -116,8 +116,8 @@ void AlibabaCloud::OSS::SetLogCallbackInner(LogCallback callback)
 
 void AlibabaCloud::OSS::InitLogInner()
 {
-    gOssLogLevel = LogLevel::LogOff;
-    gLogCallback = nullptr;
+    gOssLogLevel = LogLevel::LogTrace;
+    gLogCallback = DefaultLogCallbackFunc;
     auto value = std::getenv("OSS_SDK_LOG_LEVEL");
     if (value) {
         auto level = ToLower(Trim(value).c_str());

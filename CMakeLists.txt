@@ -29,10 +29,15 @@ set(TARGET_OUTPUT_NAME_PREFIX "alibabacloud-oss-" CACHE STRING "The target's out
 #Options
 option(BUILD_SHARED_LIBS  "Enable shared library" OFF)
 option(BUILD_SAMPLE "Build sample" ON)
-option(BUILD_TESTS "Build unit and perfermence tests" OFF)
+option(BUILD_TESTS "Build unit and perfermence tests" ON)
 option(ENABLE_COVERAGE "Flag to enable/disable building code with -fprofile-arcs and -ftest-coverage. Gcc only" OFF)
 option(ENABLE_RTTI "Flag to enable/disable building code with RTTI information" ON)
-
+option(USE_COROUTINE "Use C++ 20 coroutine" ON)
+if (USE_COROUTINE)
+	set(CPP_STANDARD "20" CACHE STRING "Set C++ standard 20.")
+else()
+	set(CPP_STANDARD "11" CACHE STRING "Flag to the C++ standard. The default is 11.")
+endif()
 
 #Platform
 if (CMAKE_CROSSCOMPILING)
@@ -98,8 +103,10 @@ else()
 	set(CLIENT_LIBS_ABSTRACT_NAME curl)
 endif()
 
+message(STATUS "CXX Standard: ${CPP_STANDARD}")
+
 #Compiler flags
-list(APPEND SDK_COMPILER_FLAGS "-std=c++11")
+list(APPEND SDK_COMPILER_FLAGS "-std=c++${CPP_STANDARD}")
 if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 	list(APPEND SDK_COMPILER_FLAGS "/MP")
 	if (NOT ENABLE_RTTI)
@@ -117,9 +124,9 @@ else()
 	if (NOT ENABLE_RTTI)
 	list(APPEND SDK_COMPILER_FLAGS "-fno-rtti")
 	endif()
-	
+
 	list(APPEND SDK_COMPILER_FLAGS "-Wall" "-Werror" "-pedantic" "-Wextra")
-	
+
 	if (ENABLE_COVERAGE)
 	SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fprofile-arcs -ftest-coverage")
 	SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fprofile-arcs -ftest-coverage")
@@ -127,6 +134,17 @@ else()
 	endif()
 endif()
 
+if (USE_COROUTINE)
+	message(STATUS "Use C++20 Coroutine")
+	add_compile_definitions(USE_COROUTINE)
+	add_compile_definitions(USE_CORO)
+	list(APPEND SDK_COMPILER_FLAGS "-fexceptions")
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcoroutines")
+        #-ftree-slp-vectorize with coroutine cause link error. disable it util gcc fix.
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-tree-slp-vectorize")
+    endif()
+endif()
 
 if (BUILD_SHARED_LIBS)
 	set(STATIC_LIB_SUFFIX "-static")

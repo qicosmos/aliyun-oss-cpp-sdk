@@ -1,12 +1,12 @@
 /*
  * Copyright 2009-2017 Alibaba Cloud All rights reserved.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -31,8 +31,8 @@ using namespace tinyxml2;
 Client::Client(const std::string & servicename, const ClientConfiguration &configuration) :
     requestDateOffset_(0),
     serviceName_(servicename),
-    configuration_(configuration),
-    httpClient_(configuration.httpClient? configuration.httpClient:std::make_shared<CurlHttpClient>(configuration))
+      configuration_(configuration),
+      httpClient_(configuration.httpClient? configuration.httpClient:std::make_shared<CurlHttpClient>(configuration))
 {
 }
 
@@ -42,7 +42,7 @@ Client::~Client()
 
 const ClientConfiguration& Client::configuration()const
 {
-    return configuration_;
+  return configuration_;
 }
 
 std::string Client::serviceName()const
@@ -52,100 +52,132 @@ std::string Client::serviceName()const
 
 Client::ClientOutcome Client::AttemptRequest(const std::string & endpoint, const ServiceRequest & request, Http::Method method) const
 {
-    for (int retry =0; ;retry++) {
-        auto outcome = AttemptOnceRequest(endpoint, request, method);
-        if (outcome.isSuccess()) {
-            return outcome;
-        } 
-        else if (!httpClient_->isEnable()) {
-            return outcome;
-        }
-        else {
-            if (configuration_.enableDateSkewAdjustment &&
-                outcome.error().Status() == 403 &&
-                outcome.error().Message().find("RequestTimeTooSkewed")) {
-                auto serverTimeStr = analyzeServerTime(outcome.error().Message());
-                auto serverTime = UtcToUnixTime(serverTimeStr);
-                if (serverTime != -1) {
-                    std::time_t localTime = std::time(nullptr);
-                    setRequestDateOffset(serverTime - localTime);
-                }
-            }
-            RetryStrategy *retryStrategy = configuration().retryStrategy.get();
-            if (retryStrategy == nullptr || !retryStrategy->shouldRetry(outcome.error(), retry)) {
-                return outcome;
-            }
-            long sleepTmeMs = retryStrategy->calcDelayTimeMs(outcome.error(), retry);
-            httpClient_->waitForRetry(sleepTmeMs);
-        }
-    }
+#ifdef USE_CORO
+  return async_simple::coro::syncAwait(
+      AttemptRequestImpl(endpoint, request, method));
+#else
+  return AttemptRequestImpl(endpoint, request, method);
+#endif
 }
 
-Client::ClientOutcome Client::AttemptOnceRequest(const std::string & endpoint, const ServiceRequest & request, Http::Method method) const
+async_simple::coro::Lazy<Client::ClientOutcome>
+Client::AttemptRequestImpl(const std::string & endpoint, const ServiceRequest & request, Http::Method method) const
 {
-    if (!httpClient_->isEnable()) {
-        return ClientOutcome(Error("ClientError:100002", "Disable all requests by upper."));
+  for (int retry =0; ;retry++) {
+    auto outcome = OSS_AWAIT AttemptOnceRequest(endpoint, request, method);
+    if (outcome.isSuccess()) {
+      OSS_RETURN outcome;
+    } 
+    else if (!httpClient_->isEnable()) {
+      OSS_RETURN outcome;
+    } 
+    else {
+      if (configuration_.enableDateSkewAdjustment &&
+          outcome.error().Status() == 403 &&
+          outcome.error().Message().find("RequestTimeTooSkewed")) {
+        auto serverTimeStr = analyzeServerTime(outcome.error().Message());
+        auto serverTime = UtcToUnixTime(serverTimeStr);
+        if (serverTime != -1) {
+          std::time_t localTime = std::time(nullptr);
+          setRequestDateOffset(serverTime - localTime);
+        }
+      }
+      RetryStrategy *retryStrategy = configuration().retryStrategy.get();
+      if (retryStrategy == nullptr || !retryStrategy->shouldRetry(outcome.error(), retry)) {
+        OSS_RETURN outcome;
+      }
+      long sleepTmeMs = retryStrategy->calcDelayTimeMs(outcome.error(), retry);
+      httpClient_->waitForRetry(sleepTmeMs);
     }
+  }
+}
 
-    auto r = buildHttpRequest(endpoint, request, method);
-    auto response = httpClient_->makeRequest(r); 
-    
-    if(hasResponseError(response)) {
-        return ClientOutcome(buildError(response));
-    } else {
-        return ClientOutcome(response);
-    }
+#ifdef USE_CORO
+async_simple::coro::Lazy<Client::ClientOutcome>
+#else
+Client::ClientOutcome
+#endif
+Client::AttemptOnceRequest(const std::string & endpoint, const ServiceRequest & request, Http::Method method) const
+{
+  if (!httpClient_->isEnable()) {
+#ifdef USE_CORO
+    co_return ClientOutcome(Error("ClientError:100002", "Disable all requests by upper."));
+#else
+    return ClientOutcome(Error("ClientError:100002", "Disable all requests by upper."));
+#endif
+  }
+
+  auto r = buildHttpRequest(endpoint, request, method);
+#ifdef USE_CORO
+  auto response = co_await httpClient_->makeRequestAsync(r);
+#else
+  auto response = httpClient_->makeRequest(r);
+#endif
+
+#ifdef USE_CORO
+  if (hasResponseError(response)) {
+    co_return ClientOutcome(buildError(response));
+  } else {
+    co_return ClientOutcome(response);
+  }
+#else
+  if(hasResponseError(response)) {
+    return ClientOutcome(buildError(response));
+  } else {
+    return ClientOutcome(response);
+  }
+#endif
 }
 
 std::string Client::analyzeServerTime(const std::string &message) const
 {
-    XMLDocument doc;
-    if (doc.Parse(message.c_str(), message.size()) == XML_SUCCESS) {
-        XMLElement* root = doc.RootElement();
-        if (root && !std::strncmp("Error", root->Name(), 5)) {
-            XMLElement *node;
-            node = root->FirstChildElement("ServerTime");
-            return (node ? node->GetText() : "");
-        }
+  XMLDocument doc;
+  if (doc.Parse(message.c_str(), message.size()) == XML_SUCCESS) {
+    XMLElement* root = doc.RootElement();
+    if (root && !std::strncmp("Error", root->Name(), 5)) {
+      XMLElement *node;
+      node = root->FirstChildElement("ServerTime");
+      return (node ? node->GetText() : "");
     }
-    return "";
+  }
+  return "";
 }
 
 Error Client::buildError(const std::shared_ptr<HttpResponse> &response) const
 {
-    Error error;
-    if (response == nullptr) {
-        error.setCode("NullptrError");
-        error.setMessage("HttpResponse is nullptr, should not be here.");
-        return error;
-    }
-    
-    long responseCode = response->statusCode();
-    error.setStatus(responseCode);
-    std::stringstream ss;
-    if ((responseCode == 203) || 
-        (responseCode > 299 && responseCode < 600)) {
-        ss << "ServerError:" << responseCode;
-        error.setCode(ss.str());
-        if (response->Body() != nullptr) {
-            std::istreambuf_iterator<char> isb(*response->Body().get()), end;
-            error.setMessage(std::string(isb, end));
-        }
-    } else {
-        ss << "ClientError:" << responseCode;
-        error.setCode(ss.str());
-        error.setMessage(response->statusMsg());
-    }
-    error.setHeaders(response->Headers());
+  Error error;
+  if (response == nullptr) {
+    error.setCode("NullptrError");
+    error.setMessage("HttpResponse is nullptr, should not be here.");
     return error;
+  }
+
+  long responseCode = response->statusCode();
+  error.setStatus(responseCode);
+  std::stringstream ss;
+  if ((responseCode == 203) || 
+        (responseCode > 299 && responseCode < 600)) {
+    ss << "ServerError:" << responseCode;
+    error.setCode(ss.str());
+    if (response->Body() != nullptr) {
+      std::istreambuf_iterator<char> isb(*response->Body().get()), end;
+      error.setMessage(std::string(isb, end));
+    }
+  } else {
+    ss << "ClientError:" << responseCode;
+    error.setCode(ss.str());
+    error.setMessage(response->statusMsg());
+  }
+  error.setHeaders(response->Headers());
+  return error;
 }
 
 bool Client::hasResponseError(const std::shared_ptr<HttpResponse>&response)const
 {
-    if (!response) {
-        return true;
-    }
-    return (response->statusCode()/100 != 2);
+  if (!response) {
+    return true;
+  }
+  return (response->statusCode()/100 != 2);
 }
 
 void Client::disableRequest()
@@ -162,10 +194,10 @@ bool Client::isEnableRequest() const
 {
     return httpClient_->isEnable();
 }
-   
+
 void Client::setRequestDateOffset(uint64_t offset) const
 {
-    requestDateOffset_ = offset;
+  requestDateOffset_ = offset;
 }
 
 uint64_t Client::getRequestDateOffset() const

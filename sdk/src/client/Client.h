@@ -1,12 +1,12 @@
 /*
  * Copyright 2009-2017 Alibaba Cloud All rights reserved.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -25,43 +25,66 @@
 #include <alibabacloud/oss/utils/Outcome.h>
 #include <alibabacloud/oss/http/HttpClient.h>
 
-namespace AlibabaCloud
+namespace AlibabaCloud 
 {
-namespace OSS
+namespace OSS 
 {
+
+#ifdef USE_CORO
+#define OSS_RETURN co_return
+#else
+#define OSS_RETURN return
+#endif
+
+#ifdef USE_CORO
+#define OSS_AWAIT co_await
+#else
+#define OSS_AWAIT
+#endif
 
     class  Client
     {
-    public:
-        using ClientOutcome =  Outcome<Error, std::shared_ptr<HttpResponse>> ;
+public:
+  using ClientOutcome =  Outcome<Error, std::shared_ptr<HttpResponse>> ;
 
-        Client(const std::string & servicename, const ClientConfiguration &configuration);
-        virtual ~Client();
+  Client(const std::string & servicename, const ClientConfiguration &configuration);
+  virtual ~Client();
 
-        std::string serviceName()const;
-        const ClientConfiguration &configuration()const;
+  std::string serviceName()const;
+  const ClientConfiguration &configuration()const;
 
-        bool isEnableRequest() const;
+  bool isEnableRequest() const;
 
-    protected:
-        ClientOutcome AttemptRequest(const std::string & endpoint, const ServiceRequest &request, Http::Method method) const;
-        ClientOutcome AttemptOnceRequest(const std::string & endpoint, const ServiceRequest &request, Http::Method method) const;
-        virtual std::shared_ptr<HttpRequest> buildHttpRequest(const std::string & endpoint, const ServiceRequest &msg, Http::Method method) const = 0;
-        virtual bool hasResponseError(const std::shared_ptr<HttpResponse>&response) const;
-        
-        void setRequestDateOffset(uint64_t offset) const;
-        uint64_t getRequestDateOffset() const;
+protected:
+  ClientOutcome AttemptRequest(const std::string & endpoint, const ServiceRequest &request, Http::Method method) const;
 
-        void disableRequest();
-        void enableRequest();
-    private:
-        Error buildError(const std::shared_ptr<HttpResponse> &response) const ;
-        std::string analyzeServerTime(const std::string &message) const;
+#ifdef USE_CORO
+  async_simple::coro::Lazy<Client::ClientOutcome>
+  AttemptRequestImpl(const std::string &endpoint, const ServiceRequest &request, Http::Method method) const;
+#endif
 
-        mutable uint64_t requestDateOffset_;
-        std::string serviceName_;
-        ClientConfiguration configuration_;
-        std::shared_ptr<HttpClient> httpClient_;
-    };
+#ifdef USE_CORO
+  async_simple::coro::Lazy<Client::ClientOutcome>
+#else
+  ClientOutcome
+#endif
+  AttemptOnceRequest(const std::string & endpoint, const ServiceRequest & request, Http::Method method) const;
+  virtual std::shared_ptr<HttpRequest> buildHttpRequest(const std::string & endpoint, const ServiceRequest &msg, Http::Method method) const = 0;
+  virtual bool hasResponseError(const std::shared_ptr<HttpResponse>&response) const;
+
+  void setRequestDateOffset(uint64_t offset) const;
+  uint64_t getRequestDateOffset() const;
+
+  void disableRequest();
+  void enableRequest();
+private:
+  Error buildError(const std::shared_ptr<HttpResponse> &response) const ;
+  std::string analyzeServerTime(const std::string &message) const;
+
+  mutable uint64_t requestDateOffset_;
+  std::string serviceName_;
+  ClientConfiguration configuration_;
+  std::shared_ptr<HttpClient> httpClient_;
+};
 }
 }
